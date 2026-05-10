@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import { initialProducts } from './data/products'
 import AppLayout from './layouts/AppLayout'
 import CartPage from './pages/CartPage'
 import CatalogPage from './pages/CatalogPage'
@@ -8,11 +7,45 @@ import CheckoutPage from './pages/CheckoutPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import ProductPage from './pages/ProductPage'
 import TextPage from './pages/TextPage'
+import { fetchCatalogItems, fetchFeature3Values, orderBase } from './utils/catalogApi'
 
 function App() {
-  const [products, setProducts] = useState(initialProducts)
+  const [products, setProducts] = useState([])
+  const [feature3Options, setFeature3Options] = useState([])
   const [cartItems, setCartItems] = useState({})
   const [lastOrderNumber, setLastOrderNumber] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const isFirstCatalogFetchRef = useRef(true)
+
+  const loadCatalog = useCallback(async (filters = {}) => {
+    if (isFirstCatalogFetchRef.current) {
+      setIsLoading(true)
+    }
+    setLoadError('')
+    try {
+      const [items, options] = await Promise.all([
+        fetchCatalogItems(filters),
+        fetchFeature3Values(),
+      ])
+      setProducts(items)
+      setFeature3Options(options)
+    } catch (error) {
+      setLoadError('Не удалось загрузить каталог. Проверьте backend сервисы.')
+      console.error(error)
+    } finally {
+      if (isFirstCatalogFetchRef.current) {
+        setIsLoading(false)
+      }
+      isFirstCatalogFetchRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    // Начальная загрузка каталога и опций feature_3 с API
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadCatalog асинхронно обновляет состояние после ответа
+    void loadCatalog({})
+  }, [loadCatalog])
 
   const handleAddToCart = (productId) => {
     const normalizedId = Number(productId)
@@ -54,11 +87,38 @@ function App() {
     })
   }
 
-  const handleConfirmOrder = () => {
-    const nextOrderNumber = Math.floor(100 + Math.random() * 900)
-    setLastOrderNumber(nextOrderNumber)
+  const handleConfirmOrder = async ({ delivery, address, phone }) => {
+    const payload = {
+      delivery,
+      address: delivery ? address : null,
+      phone,
+      items: Object.entries(cartItems).map(([itemId, quantity]) => ({
+        item_id: Number(itemId),
+        quantity,
+      })),
+    }
+    const response = await fetch(`${orderBase}/order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Order API status: ${response.status}`)
+    }
+
+    const createdOrder = await response.json()
+    setLastOrderNumber(createdOrder.number)
     setCartItems({})
-    return nextOrderNumber
+    return createdOrder.number
+  }
+
+  if (isLoading) {
+    return <p style={{ padding: '2rem' }}>Загрузка каталога...</p>
+  }
+
+  if (loadError) {
+    return <p style={{ padding: '2rem', color: '#dc2626' }}>{loadError}</p>
   }
 
   return (
@@ -66,11 +126,20 @@ function App() {
       <Route path="/" element={<AppLayout />}>
         <Route
           index
-          element={<CatalogPage products={products} onAddToCart={handleAddToCart} />}
+          element={
+            <CatalogPage
+              products={products}
+              feature3Options={feature3Options}
+              onAddToCart={handleAddToCart}
+              onApplyFilters={loadCatalog}
+            />
+          }
         />
         <Route
           path="product/:productId"
-          element={<ProductPage products={products} onAddToCart={handleAddToCart} />}
+          element={
+            <ProductPage products={products} onAddToCart={handleAddToCart} />
+          }
         />
         <Route
           path="cart"

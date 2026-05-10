@@ -8,6 +8,8 @@ function CheckoutPage({ products, cartItems, onConfirmOrder }) {
   const [deliveryType, setDeliveryType] = useState('delivery')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const productById = new Map(products.map((product) => [product.id, product]))
 
@@ -34,13 +36,25 @@ function CheckoutPage({ products, cartItems, onConfirmOrder }) {
     phone.trim().length > 0 &&
     (isDelivery ? address.trim().length > 0 : true)
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     if (!canConfirm) {
       return
     }
-
-    const orderNumber = onConfirmOrder()
-    navigate('/order-success', { state: { orderNumber } })
+    setSubmitError('')
+    setIsSubmitting(true)
+    try {
+      const orderNumber = await onConfirmOrder({
+        delivery: isDelivery,
+        address,
+        phone,
+      })
+      navigate('/order-success', { state: { orderNumber } })
+    } catch (error) {
+      setSubmitError('Не удалось создать заказ. Попробуйте еще раз.')
+      console.error(error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -114,14 +128,15 @@ function CheckoutPage({ products, cartItems, onConfirmOrder }) {
           </div>
 
           <p className="checkout-note">Оплата производится при получении товара.</p>
+          {submitError ? <p className="checkout-note">{submitError}</p> : null}
 
           <button
             type="button"
             className="confirm-order-button"
-            disabled={!canConfirm}
+            disabled={!canConfirm || isSubmitting}
             onClick={handleConfirmOrder}
           >
-            Подтвердить заказ
+            {isSubmitting ? 'Создание заказа...' : 'Подтвердить заказ'}
           </button>
         </section>
       </main>
