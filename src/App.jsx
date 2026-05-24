@@ -4,9 +4,12 @@ import AppLayout from './layouts/AppLayout'
 import CartPage from './pages/CartPage'
 import CatalogPage from './pages/CatalogPage'
 import CheckoutPage from './pages/CheckoutPage'
+import LoginPage from './pages/LoginPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
+import OrdersListPage from './pages/OrdersListPage'
 import ProductPage from './pages/ProductPage'
-import TextPage from './pages/TextPage'
+import RegisterPage from './pages/RegisterPage'
+import { AuthProvider } from './utils/AuthContext'
 import { fetchCatalogItems, fetchFeature3Values, orderBase } from './utils/catalogApi'
 
 function App() {
@@ -17,8 +20,10 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const isFirstCatalogFetchRef = useRef(true)
+  const currentFiltersRef = useRef({})
 
   const loadCatalog = useCallback(async (filters = {}) => {
+    currentFiltersRef.current = filters
     if (isFirstCatalogFetchRef.current) {
       setIsLoading(true)
     }
@@ -41,8 +46,11 @@ function App() {
     }
   }, [])
 
+  const reloadCatalog = useCallback(() => {
+    return loadCatalog(currentFiltersRef.current ?? {})
+  }, [loadCatalog])
+
   useEffect(() => {
-    // Начальная загрузка каталога и опций feature_3 с API
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loadCatalog асинхронно обновляет состояние после ответа
     void loadCatalog({})
   }, [loadCatalog])
@@ -122,54 +130,63 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<AppLayout />}>
-        <Route
-          index
-          element={
-            <CatalogPage
-              products={products}
-              feature3Options={feature3Options}
-              onAddToCart={handleAddToCart}
-              onApplyFilters={loadCatalog}
-            />
-          }
-        />
-        <Route
-          path="product/:productId"
-          element={
-            <ProductPage products={products} onAddToCart={handleAddToCart} />
-          }
-        />
-        <Route
-          path="cart"
-          element={
-            <CartPage
-              products={products}
-              cartItems={cartItems}
-              onIncrease={handleIncreaseQuantity}
-              onDecrease={handleDecreaseQuantity}
-              onRemove={handleRemoveFromCart}
-            />
-          }
-        />
-        <Route
-          path="checkout"
-          element={
-            <CheckoutPage
-              products={products}
-              cartItems={cartItems}
-              onConfirmOrder={handleConfirmOrder}
-            />
-          }
-        />
-        <Route
-          path="order-success"
-          element={<OrderSuccessPage lastOrderNumber={lastOrderNumber} />}
-        />
-        <Route path="login" element={<TextPage title="Войти" />} />
-      </Route>
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<AppLayout />}>
+          <Route
+            index
+            element={
+              <CatalogPage
+                products={products}
+                feature3Options={feature3Options}
+                onAddToCart={handleAddToCart}
+                onApplyFilters={loadCatalog}
+                onCatalogChanged={reloadCatalog}
+              />
+            }
+          />
+          <Route
+            path="product/:productId"
+            element={
+              <ProductPage
+                products={products}
+                onAddToCart={handleAddToCart}
+                onCatalogChanged={reloadCatalog}
+              />
+            }
+          />
+          <Route
+            path="cart"
+            element={
+              <CartPage
+                products={products}
+                cartItems={cartItems}
+                onIncrease={handleIncreaseQuantity}
+                onDecrease={handleDecreaseQuantity}
+                onRemove={handleRemoveFromCart}
+              />
+            }
+          />
+          <Route
+            path="checkout"
+            element={
+              <CheckoutPage
+                products={products}
+                cartItems={cartItems}
+                onConfirmOrder={handleConfirmOrder}
+              />
+            }
+          />
+          <Route
+            path="order-success"
+            element={<OrderSuccessPage lastOrderNumber={lastOrderNumber} />}
+          />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="orders" element={<OrdersListPage />} />
+        </Route>
+      </Routes>
+    </AuthProvider>
   )
 }
 

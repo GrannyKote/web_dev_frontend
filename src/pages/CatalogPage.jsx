@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import ProductFormModal from '../components/ProductFormModal'
 import StoreHero from '../components/StoreHero'
+import { useAuth } from '../utils/AuthContext'
+import { deleteCatalogItem } from '../utils/catalogApi'
 import { formatPrice } from '../utils/price'
 
 const FEATURE_1_ALL = ''
@@ -11,11 +14,22 @@ const FEATURE_1_OPTIONS = [
   { value: 'вариант 2', label: 'вариант 2' },
 ]
 
-function CatalogPage({ products, feature3Options = [], onAddToCart, onApplyFilters }) {
+function CatalogPage({
+  products,
+  feature3Options = [],
+  onAddToCart,
+  onApplyFilters,
+  onCatalogChanged,
+}) {
+  const { isAuthenticated, token } = useAuth()
   const [feature1, setFeature1] = useState(FEATURE_1_ALL)
   const [feature2From, setFeature2From] = useState('')
   const [feature2To, setFeature2To] = useState('')
   const [feature3, setFeature3] = useState('')
+
+  const [modalMode, setModalMode] = useState(null)
+  const [editingProduct, setEditingProduct] = useState(null)
+  const [actionError, setActionError] = useState('')
 
   const safeFeature3Options = Array.isArray(feature3Options) ? feature3Options : []
   const resolvedFeature3 =
@@ -36,6 +50,34 @@ function CatalogPage({ products, feature3Options = [], onAddToCart, onApplyFilte
     setFeature2To('')
     setFeature3('')
     onApplyFilters({})
+  }
+
+  const openCreate = () => {
+    setEditingProduct(null)
+    setModalMode('create')
+  }
+
+  const openEdit = (product) => {
+    setEditingProduct(product)
+    setModalMode('edit')
+  }
+
+  const closeModal = () => {
+    setModalMode(null)
+    setEditingProduct(null)
+  }
+
+  const handleDelete = async (product) => {
+    if (!window.confirm(`Удалить товар «${product.name}»?`)) {
+      return
+    }
+    setActionError('')
+    try {
+      await deleteCatalogItem(product.id, token)
+      onCatalogChanged?.()
+    } catch (err) {
+      setActionError(err.message || 'Не удалось удалить товар')
+    }
   }
 
   return (
@@ -100,6 +142,15 @@ function CatalogPage({ products, feature3Options = [], onAddToCart, onApplyFilte
         </aside>
 
         <section className="products">
+          {isAuthenticated && (
+            <div className="catalog-toolbar">
+              <button type="button" className="btn-primary" onClick={openCreate}>
+                + Добавить товар
+              </button>
+              {actionError && <span className="auth-error">{actionError}</span>}
+            </div>
+          )}
+
           {products.length === 0 ? (
             <p className="catalog-empty">Нет товаров по выбранным условиям.</p>
           ) : (
@@ -111,9 +162,29 @@ function CatalogPage({ products, feature3Options = [], onAddToCart, onApplyFilte
                   </Link>
                   <p>{product.description}</p>
                   <p className="price">{formatPrice(product.priceCents)}</p>
-                  <button type="button" onClick={() => onAddToCart(product.id)}>
-                    В корзину
-                  </button>
+                  <div className="product-actions">
+                    <button type="button" onClick={() => onAddToCart(product.id)}>
+                      В корзину
+                    </button>
+                    {isAuthenticated && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => openEdit(product)}
+                        >
+                          Редактировать
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          onClick={() => handleDelete(product)}
+                        >
+                          Удалить
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="photo-placeholder">
                   {product.photoSrc ? (
@@ -132,6 +203,15 @@ function CatalogPage({ products, feature3Options = [], onAddToCart, onApplyFilte
           )}
         </section>
       </main>
+
+      {modalMode && (
+        <ProductFormModal
+          mode={modalMode}
+          product={editingProduct}
+          onClose={closeModal}
+          onSaved={() => onCatalogChanged?.()}
+        />
+      )}
     </>
   )
 }

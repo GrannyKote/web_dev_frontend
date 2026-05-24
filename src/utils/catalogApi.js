@@ -1,10 +1,14 @@
+import { authHeader, gatewayBase } from './authApi'
+
+// Все запросы идут через API Gateway:
+//   - /catalog/* — каталог
+//   - /order/*   — заказы
+//   - /auth/*    — авторизация
 export const catalogBase =
-  import.meta.env.VITE_CATALOG_API_URL ??
-  (import.meta.env.DEV ? '' : 'http://127.0.0.1:8000')
+  import.meta.env.VITE_CATALOG_API_URL ?? gatewayBase
 
 export const orderBase =
-  import.meta.env.VITE_ORDER_API_URL ??
-  (import.meta.env.DEV ? '' : 'http://127.0.0.1:8001')
+  import.meta.env.VITE_ORDER_API_URL ?? gatewayBase
 
 /**
  * API отдаёт photo как сырой base64 (байты картинки). Строим data URL для <img>.
@@ -77,6 +81,7 @@ export function mapProduct(item) {
     photoSrc: photoSrcFromCatalogApi(item.photo),
     features: featureEntries,
     available: `Доступно к заказу: ${item.stock ?? 0} штук`,
+    raw: item,
   }
 }
 
@@ -91,13 +96,6 @@ function appendNumberParam(params, key, raw) {
   params.set(key, String(n))
 }
 
-/**
- * @param {object} filters
- * @param {string} [filters.feature_1] — «вариант 1» | «вариант 2» | ''
- * @param {string} [filters.feature_2_from]
- * @param {string} [filters.feature_2_to]
- * @param {string} [filters.feature_3]
- */
 export async function fetchFeature3Values() {
   const response = await fetch(`${catalogBase}/catalog/feature-3-values`)
   if (!response.ok) {
@@ -133,4 +131,93 @@ export async function fetchCatalogItemById(id) {
   }
   const data = await response.json()
   return mapProduct(data)
+}
+
+async function readError(response) {
+  try {
+    const data = await response.json()
+    if (data?.detail) {
+      if (Array.isArray(data.detail)) {
+        return data.detail.map((d) => d.msg ?? JSON.stringify(d)).join('; ')
+      }
+      return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
+    }
+  } catch {
+    /* нет JSON — отдадим статус */
+  }
+  return `HTTP ${response.status}`
+}
+
+export async function createCatalogItem(payload, token) {
+  const response = await fetch(`${catalogBase}/catalog`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response))
+  }
+  return response.json()
+}
+
+export async function updateCatalogItem(id, payload, token) {
+  const response = await fetch(`${catalogBase}/catalog/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response))
+  }
+  return response.json()
+}
+
+export async function deleteCatalogItem(id, token) {
+  const response = await fetch(`${catalogBase}/catalog/${id}`, {
+    method: 'DELETE',
+    headers: { ...authHeader(token) },
+  })
+  if (!response.ok && response.status !== 204) {
+    throw new Error(await readError(response))
+  }
+}
+
+export async function fetchOrderByNumber(number) {
+  const response = await fetch(`${orderBase}/order/${encodeURIComponent(number)}`)
+  if (!response.ok) {
+    throw new Error(await readError(response))
+  }
+  return response.json()
+}
+
+export async function fetchOrders(token) {
+  const response = await fetch(`${orderBase}/order`, {
+    headers: { ...authHeader(token) },
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response))
+  }
+  return response.json()
+}
+
+export async function updateOrder(orderId, payload, token) {
+  const response = await fetch(`${orderBase}/order/${orderId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response))
+  }
+  return response.json()
+}
+
+export async function deleteOrder(orderId, token) {
+  const response = await fetch(`${orderBase}/order/${orderId}`, {
+    method: 'DELETE',
+    headers: { ...authHeader(token) },
+  })
+  if (!response.ok && response.status !== 204) {
+    throw new Error(await readError(response))
+  }
 }

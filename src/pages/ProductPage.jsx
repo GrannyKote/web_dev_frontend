@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import ProductFormModal from '../components/ProductFormModal'
 import StoreHero from '../components/StoreHero'
-import { fetchCatalogItemById } from '../utils/catalogApi'
+import { useAuth } from '../utils/AuthContext'
+import { deleteCatalogItem, fetchCatalogItemById } from '../utils/catalogApi'
 import { formatPrice } from '../utils/price'
 
-function ProductPage({ products, onAddToCart }) {
+function ProductPage({ products, onAddToCart, onCatalogChanged }) {
   const { productId } = useParams()
+  const navigate = useNavigate()
+  const { isAuthenticated, token } = useAuth()
   const id = Number(productId)
   const fromList = Number.isFinite(id) ? products.find((item) => item.id === id) : undefined
 
   const [product, setProduct] = useState(fromList ?? null)
   const [notFound, setNotFound] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- выравнивание product при смене id / списка */
@@ -30,7 +37,7 @@ function ProductPage({ products, onAddToCart }) {
   }, [id, fromList])
 
   useEffect(() => {
-    if (!Number.isFinite(id) || fromList) {
+    if (!Number.isFinite(id)) {
       return
     }
     let cancelled = false
@@ -48,7 +55,7 @@ function ProductPage({ products, onAddToCart }) {
     return () => {
       cancelled = true
     }
-  }, [id, fromList])
+  }, [id, reloadKey])
 
   if (!Number.isFinite(id)) {
     return <Navigate to="/" replace />
@@ -67,6 +74,25 @@ function ProductPage({ products, onAddToCart }) {
         </main>
       </>
     )
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Удалить товар «${product.name}»?`)) {
+      return
+    }
+    setActionError('')
+    try {
+      await deleteCatalogItem(product.id, token)
+      onCatalogChanged?.()
+      navigate('/', { replace: true })
+    } catch (err) {
+      setActionError(err.message || 'Не удалось удалить товар')
+    }
+  }
+
+  const handleSaved = () => {
+    onCatalogChanged?.()
+    setReloadKey((value) => value + 1)
   }
 
   return (
@@ -88,9 +114,26 @@ function ProductPage({ products, onAddToCart }) {
             </ul>
             <p>{product.available}</p>
 
-            <button type="button" onClick={() => onAddToCart(product.id)}>
-              В корзину
-            </button>
+            <div className="product-actions">
+              <button type="button" onClick={() => onAddToCart(product.id)}>
+                В корзину
+              </button>
+              {isAuthenticated && (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setEditing(true)}
+                  >
+                    Редактировать
+                  </button>
+                  <button type="button" className="btn-danger" onClick={handleDelete}>
+                    Удалить
+                  </button>
+                </>
+              )}
+            </div>
+            {actionError && <p className="auth-error">{actionError}</p>}
           </div>
           <div className="photo-placeholder detail-photo">
             {product.photoSrc ? (
@@ -106,6 +149,15 @@ function ProductPage({ products, onAddToCart }) {
           </div>
         </article>
       </main>
+
+      {editing && (
+        <ProductFormModal
+          mode="edit"
+          product={product}
+          onClose={() => setEditing(false)}
+          onSaved={handleSaved}
+        />
+      )}
     </>
   )
 }
