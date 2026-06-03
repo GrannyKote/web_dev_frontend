@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import ProductFormModal from '../components/ProductFormModal'
 import StoreHero from '../components/StoreHero'
 import { useAuth } from '../utils/AuthContext'
 import { deleteCatalogItem } from '../utils/catalogApi'
@@ -27,8 +26,6 @@ function CatalogPage({
   const [feature2To, setFeature2To] = useState('')
   const [feature3, setFeature3] = useState('')
 
-  const [modalMode, setModalMode] = useState(null)
-  const [editingProduct, setEditingProduct] = useState(null)
   const [actionError, setActionError] = useState('')
 
   const safeFeature3Options = Array.isArray(feature3Options) ? feature3Options : []
@@ -50,21 +47,6 @@ function CatalogPage({
     setFeature2To('')
     setFeature3('')
     onApplyFilters({})
-  }
-
-  const openCreate = () => {
-    setEditingProduct(null)
-    setModalMode('create')
-  }
-
-  const openEdit = (product) => {
-    setEditingProduct(product)
-    setModalMode('edit')
-  }
-
-  const closeModal = () => {
-    setModalMode(null)
-    setEditingProduct(null)
   }
 
   const handleDelete = async (product) => {
@@ -144,9 +126,9 @@ function CatalogPage({
         <section className="products">
           {isAuthenticated && (
             <div className="catalog-toolbar">
-              <button type="button" className="btn-primary" onClick={openCreate}>
+              <Link to="/product/new" className="btn-primary">
                 + Добавить товар
-              </button>
+              </Link>
               {actionError && <span className="auth-error">{actionError}</span>}
             </div>
           )}
@@ -163,18 +145,19 @@ function CatalogPage({
                   <p>{product.description}</p>
                   <p className="price">{formatPrice(product.priceCents)}</p>
                   <div className="product-actions">
-                    <button type="button" onClick={() => onAddToCart(product.id)}>
-                      В корзину
-                    </button>
+                    {!isAuthenticated && (
+                      <button type="button" onClick={() => onAddToCart(product.id)}>
+                        В корзину
+                      </button>
+                    )}
                     {isAuthenticated && (
                       <>
-                        <button
-                          type="button"
+                        <Link
+                          to={`/product/${product.id}/edit`}
                           className="btn-secondary"
-                          onClick={() => openEdit(product)}
                         >
                           Редактировать
-                        </button>
+                        </Link>
                         <button
                           type="button"
                           className="btn-danger"
@@ -203,15 +186,6 @@ function CatalogPage({
           )}
         </section>
       </main>
-
-      {modalMode && (
-        <ProductFormModal
-          mode={modalMode}
-          product={editingProduct}
-          onClose={closeModal}
-          onSaved={() => onCatalogChanged?.()}
-        />
-      )}
     </>
   )
 }

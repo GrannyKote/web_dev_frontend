@@ -1,14 +1,19 @@
 import { authHeader, gatewayBase } from './authApi'
 
 // Все запросы идут через API Gateway:
-//   - /catalog/* — каталог
-//   - /order/*   — заказы
-//   - /auth/*    — авторизация
+//   - /catalog/*       — публичный каталог (catalog_service)
+//   - /order/{number}  — публичный просмотр заказа, POST /order — оформление
+//   - /admin/catalog/* — администрирование товаров (admin_service ↔ catalog через Kafka)
+//   - /admin/order/*   — администрирование заказов (admin_service ↔ order через Kafka)
+//   - /auth/*          — авторизация
 export const catalogBase =
   import.meta.env.VITE_CATALOG_API_URL ?? gatewayBase
 
 export const orderBase =
   import.meta.env.VITE_ORDER_API_URL ?? gatewayBase
+
+export const adminBase =
+  import.meta.env.VITE_ADMIN_API_URL ?? gatewayBase
 
 /**
  * API отдаёт photo как сырой base64 (байты картинки). Строим data URL для <img>.
@@ -149,7 +154,7 @@ async function readError(response) {
 }
 
 export async function createCatalogItem(payload, token) {
-  const response = await fetch(`${catalogBase}/catalog`, {
+  const response = await fetch(`${adminBase}/admin/catalog`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeader(token) },
     body: JSON.stringify(payload),
@@ -161,7 +166,7 @@ export async function createCatalogItem(payload, token) {
 }
 
 export async function updateCatalogItem(id, payload, token) {
-  const response = await fetch(`${catalogBase}/catalog/${id}`, {
+  const response = await fetch(`${adminBase}/admin/catalog/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader(token) },
     body: JSON.stringify(payload),
@@ -173,7 +178,7 @@ export async function updateCatalogItem(id, payload, token) {
 }
 
 export async function deleteCatalogItem(id, token) {
-  const response = await fetch(`${catalogBase}/catalog/${id}`, {
+  const response = await fetch(`${adminBase}/admin/catalog/${id}`, {
     method: 'DELETE',
     headers: { ...authHeader(token) },
   })
@@ -191,7 +196,7 @@ export async function fetchOrderByNumber(number) {
 }
 
 export async function fetchOrders(token) {
-  const response = await fetch(`${orderBase}/order`, {
+  const response = await fetch(`${adminBase}/admin/order`, {
     headers: { ...authHeader(token) },
   })
   if (!response.ok) {
@@ -201,7 +206,7 @@ export async function fetchOrders(token) {
 }
 
 export async function updateOrder(orderId, payload, token) {
-  const response = await fetch(`${orderBase}/order/${orderId}`, {
+  const response = await fetch(`${adminBase}/admin/order/${orderId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader(token) },
     body: JSON.stringify(payload),
@@ -213,7 +218,7 @@ export async function updateOrder(orderId, payload, token) {
 }
 
 export async function deleteOrder(orderId, token) {
-  const response = await fetch(`${orderBase}/order/${orderId}`, {
+  const response = await fetch(`${adminBase}/admin/order/${orderId}`, {
     method: 'DELETE',
     headers: { ...authHeader(token) },
   })

@@ -1,13 +1,15 @@
+import bannerImg from '../assets/banner.png'
+
 function StoreHero() {
   return (
     <>
       <section className="store-info">
         <h1>Название магазина</h1>
-        <p>адрес магазина</p>
+        <p>г. Тестовый, ул. Тестовая, д.1</p>
       </section>
 
       <section className="banner">
-        <h2>Большой рекламный баннер магазина</h2>
+        <img src={bannerImg} alt="Интернет-магазин лампочек Светим" />
       </section>
     </>
   )

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/AuthContext'
 
-function AppLayout() {
+function AppLayout({ cartCount = 0 }) {
   const { isAuthenticated, user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -20,9 +20,12 @@ function AppLayout() {
           <NavLink to="/" className={navLinkClass}>
             Каталог
           </NavLink>
-          <NavLink to="/cart" className={navLinkClass}>
-            Корзина
-          </NavLink>
+          {!isAuthenticated && (
+            <NavLink to="/cart" className={navLinkClass}>
+              Корзина
+              {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+            </NavLink>
+          )}
           {isAuthenticated && (
             <NavLink to="/orders" className={navLinkClass}>
               Заказы

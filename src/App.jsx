@@ -7,6 +7,7 @@ import CheckoutPage from './pages/CheckoutPage'
 import LoginPage from './pages/LoginPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import OrdersListPage from './pages/OrdersListPage'
+import ProductFormPage from './pages/ProductFormPage'
 import ProductPage from './pages/ProductPage'
 import RegisterPage from './pages/RegisterPage'
 import { AuthProvider } from './utils/AuthContext'
@@ -80,7 +81,9 @@ function App() {
     setCartItems((previous) => {
       const currentQuantity = previous[productId] ?? 0
       if (currentQuantity <= 1) {
-        return previous
+        const nextItems = { ...previous }
+        delete nextItems[productId]
+        return nextItems
       }
 
       return { ...previous, [productId]: currentQuantity - 1 }
@@ -129,10 +132,15 @@ function App() {
     return <p style={{ padding: '2rem', color: '#dc2626' }}>{loadError}</p>
   }
 
+  const cartCount = Object.values(cartItems).reduce(
+    (total, quantity) => total + quantity,
+    0,
+  )
+
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<AppLayout />}>
+        <Route path="/" element={<AppLayout cartCount={cartCount} />}>
           <Route
             index
             element={
@@ -141,6 +149,26 @@ function App() {
                 feature3Options={feature3Options}
                 onAddToCart={handleAddToCart}
                 onApplyFilters={loadCatalog}
+                onCatalogChanged={reloadCatalog}
+              />
+            }
+          />
+          <Route
+            path="product/new"
+            element={
+              <ProductFormPage
+                mode="create"
+                products={products}
+                onCatalogChanged={reloadCatalog}
+              />
+            }
+          />
+          <Route
+            path="product/:productId/edit"
+            element={
+              <ProductFormPage
+                mode="edit"
+                products={products}
                 onCatalogChanged={reloadCatalog}
               />
             }

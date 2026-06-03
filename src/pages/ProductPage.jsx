@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import ProductFormModal from '../components/ProductFormModal'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import StoreHero from '../components/StoreHero'
 import { useAuth } from '../utils/AuthContext'
 import { deleteCatalogItem, fetchCatalogItemById } from '../utils/catalogApi'
@@ -15,9 +14,7 @@ function ProductPage({ products, onAddToCart, onCatalogChanged }) {
 
   const [product, setProduct] = useState(fromList ?? null)
   const [notFound, setNotFound] = useState(false)
-  const [editing, setEditing] = useState(false)
   const [actionError, setActionError] = useState('')
-  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- выравнивание product при смене id / списка */
@@ -55,7 +52,7 @@ function ProductPage({ products, onAddToCart, onCatalogChanged }) {
     return () => {
       cancelled = true
     }
-  }, [id, reloadKey])
+  }, [id])
 
   if (!Number.isFinite(id)) {
     return <Navigate to="/" replace />
@@ -90,11 +87,6 @@ function ProductPage({ products, onAddToCart, onCatalogChanged }) {
     }
   }
 
-  const handleSaved = () => {
-    onCatalogChanged?.()
-    setReloadKey((value) => value + 1)
-  }
-
   return (
     <>
       <StoreHero />
@@ -115,18 +107,19 @@ function ProductPage({ products, onAddToCart, onCatalogChanged }) {
             <p>{product.available}</p>
 
             <div className="product-actions">
-              <button type="button" onClick={() => onAddToCart(product.id)}>
-                В корзину
-              </button>
+              {!isAuthenticated && (
+                <button type="button" onClick={() => onAddToCart(product.id)}>
+                  В корзину
+                </button>
+              )}
               {isAuthenticated && (
                 <>
-                  <button
-                    type="button"
+                  <Link
+                    to={`/product/${product.id}/edit`}
                     className="btn-secondary"
-                    onClick={() => setEditing(true)}
                   >
                     Редактировать
-                  </button>
+                  </Link>
                   <button type="button" className="btn-danger" onClick={handleDelete}>
                     Удалить
                   </button>
@@ -149,15 +142,6 @@ function ProductPage({ products, onAddToCart, onCatalogChanged }) {
           </div>
         </article>
       </main>
-
-      {editing && (
-        <ProductFormModal
-          mode="edit"
-          product={product}
-          onClose={() => setEditing(false)}
-          onSaved={handleSaved}
-        />
-      )}
     </>
   )
 }
